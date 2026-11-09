@@ -10,12 +10,11 @@ __forgejo_managed_config:
   DEFAULT:
     RUN_USER: git
     WORK_PATH: /var/lib/forgejo
-  database:
-    DB_TYPE: postgres
-    HOST: '{{ forgejo_database_host }}'
-    NAME: '{{ forgejo_database_name }}'
-    USER: '{{ forgejo_database_user }}'
-    PASSWD_URI: file:/etc/forgejo/secrets/database_password
+  database: >-
+    {{ {'DB_TYPE': forgejo_database_type} | combine(
+       {'PATH': '/var/lib/forgejo/data/forgejo.db'} if forgejo_database_type == 'sqlite3' else
+       {'HOST': forgejo_database_host, 'NAME': forgejo_database_name, 'USER': forgejo_database_user,
+        'PASSWD_URI': 'file:/etc/forgejo/secrets/database_password'}) }}
   repository:
     ROOT: /var/lib/forgejo/data/repositories
   repository.signing:

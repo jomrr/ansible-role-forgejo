@@ -3,45 +3,6 @@
 # file: molecule/resources/playbooks/prepare.yml
 
 
-- name: FORGEJO | Prepare PostgreSQL fixture
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: FORGEJO | Wait for the Valkey Unix socket
-      containers.podman.podman_container_exec:
-        name: "forgejo-{{ lookup('ansible.builtin.env', 'MOLECULE_SCENARIO_NAME') }}-cache"
-        argv: [valkey-cli, -s, /run/valkey/valkey.sock, ping]
-      register: __forgejo_cache_ready
-      until: __forgejo_cache_ready.rc == 0
-      retries: 30
-      delay: 2
-      changed_when: false
-
-    - name: FORGEJO | Wait for PostgreSQL
-      containers.podman.podman_container_exec:
-        name: "forgejo-{{ lookup('ansible.builtin.env', 'MOLECULE_SCENARIO_NAME') }}-db"
-        argv: [pg_isready, -U, forgejo, -d, postgres]
-      register: __forgejo_database_ready
-      until: __forgejo_database_ready.rc == 0
-      retries: 30
-      delay: 2
-      changed_when: false
-
-    - name: FORGEJO | Create a database for each platform
-      containers.podman.podman_container_exec:
-        name: "forgejo-{{ lookup('ansible.builtin.env', 'MOLECULE_SCENARIO_NAME') }}-db"
-        argv:
-          - psql
-          - -U
-          - forgejo
-          - -d
-          - postgres
-          - -c
-          - 'CREATE DATABASE {{ __forgejo_host | replace("-", "_") }}'
-      loop: '{{ groups.forgejo_servers }}'
-      loop_control:
-        loop_var: __forgejo_host
-
 - name: FORGEJO | Prepare managed hosts
   hosts: forgejo_servers
   gather_facts: true

@@ -6,8 +6,8 @@
 [![dev](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-forgejo/dev.yml?branch=dev&label=dev)](https://github.com/jomrr/ansible-role-forgejo/actions/workflows/dev.yml?query=branch%3Adev)
 [![main](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-forgejo/main.yml?branch=main&label=main)](https://github.com/jomrr/ansible-role-forgejo/actions/workflows/main.yml?query=branch%3Amain)
 
-Install Forgejo Linux amd64 releases and manage PostgreSQL configuration,
-signing identities and the systemd service.
+Install Forgejo Linux amd64 releases and manage database configuration, signing
+identities and the systemd service.
 
 ## Purpose
 
@@ -29,7 +29,7 @@ and start forgejo.service. Unchanged releases and settings are idempotent.
 
 ### Not Managed
 
-- PostgreSQL databases and users, Redis or Valkey, reverse proxies, SSH daemon
+- External databases and users, Redis or Valkey, reverse proxies, SSH daemon
   policy, firewall rules and SELinux policy.
 - Application administrators, backups and version compatibility across major
   upgrades.
@@ -37,8 +37,10 @@ and start forgejo.service. Unchanged releases and settings are idempotent.
 ## Requirements
 
 - Linux amd64 with systemd on a supported distribution.
-- An existing PostgreSQL database and login role with permission to create
-  Forgejo tables.
+- For PostgreSQL or MySQL/MariaDB, a prepared database and user with permission
+  to create Forgejo tables.
+- SQLite uses the downloaded binary and needs no separate database service or
+  credentials.
 - For external SSH, an SSH daemon accepting public-key authentication for git;
   for HTTP Unix sockets, proxy access to the git group.
 - For a Valkey Unix socket, grant git access through forgejo_extra_groups and
@@ -71,11 +73,25 @@ Default:
 forgejo_version: latest
 ```
 
+### `forgejo_database_type`
+
+Type: `str`. Required: `false`.
+
+Database backend; mysql supports both MySQL and MariaDB, sqlite3 uses a local
+database file.
+
+Default:
+
+```yaml
+forgejo_database_type: postgres
+```
+
 ### `forgejo_database_host`
 
 Type: `str`. Required: `false`.
 
-PostgreSQL host:port for TCP or an absolute Unix socket directory.
+External database host:port, PostgreSQL socket directory or MySQL socket path;
+unused for SQLite.
 
 Default:
 
@@ -87,7 +103,7 @@ forgejo_database_host: 127.0.0.1:5432
 
 Type: `str`. Required: `false`.
 
-Name of the externally provisioned PostgreSQL database.
+Name of the externally provisioned database; unused for SQLite.
 
 Default:
 
@@ -99,7 +115,7 @@ forgejo_database_name: forgejo
 
 Type: `str`. Required: `false`.
 
-Login role for the externally provisioned PostgreSQL database.
+Login user for the externally provisioned database; unused for SQLite.
 
 Default:
 
@@ -109,10 +125,10 @@ forgejo_database_user: forgejo
 
 ### `forgejo_database_password`
 
-Type: `str`. Required: `true`.
+Type: `str`. Required: `false`.
 
-PostgreSQL password; an empty string supports externally configured peer
-authentication.
+Required for external databases; an empty string supports passwordless
+authentication. Unused for SQLite.
 
 ### `forgejo_extra_groups`
 
@@ -253,8 +269,10 @@ forgejo_config: {}
   /usr/local/bin/forgejo selects the configured release.
 - `/etc/forgejo/app.ini` Managed template, root:git mode 0640, backed up before
   replacement.
-- `/etc/forgejo/secrets/` Persistent instance secrets and the database
-  credential, root:git mode 0640 in a 0750 directory.
+- `/etc/forgejo/secrets/` Persistent instance secrets and, for external
+  databases, the database credential; root:git mode 0640 in a 0750 directory.
+- `/var/lib/forgejo/data/forgejo.db` SQLite database created and maintained by
+  Forgejo when forgejo_database_type is sqlite3.
 - `/home/git/.ssh/id_ed25519` Instance signing private key; generated only when
   absent and never rotated by convergence.
 - `/etc/systemd/system/forgejo.service` Systemd service; application data lives
@@ -288,9 +306,15 @@ systemd first. Every run restores a stopped or disabled service.
 ## Operational Notes
 
 - forgejo_config recursively overrides forgejo_config_defaults. Keys controlling
-  managed paths, the PostgreSQL connection and signing identities are reserved.
-- TCP PostgreSQL connections use host:port. Unix connections use the PostgreSQL
-  socket directory, for example /run/postgresql.
+  managed paths, the database connection and signing identities are reserved.
+- PostgreSQL over TCP remains the default. Select mysql for MySQL/MariaDB or
+  sqlite3 for the embedded SQLite database.
+- TCP connections use host:port. Unix connections use a PostgreSQL socket
+  directory or a MySQL/MariaDB socket file.
+- forgejo_database_password is required for external databases, including an
+  explicit empty string for passwordless authentication.
+- Changing forgejo_database_type selects another backend; existing application
+  data is not migrated between databases.
 - The HTTP Unix socket is /run/forgejo/forgejo.sock. Its directory is recreated
   by systemd and requires proxy access to the git group.
 - MODE=console sends logs to the journal. Set log.MODE to console,file to also
@@ -313,6 +337,20 @@ systemd first. Every run restores a stopped or disabled service.
 
 ## Example Playbook
 
+### SQLite
+
+Use the embedded database without external services or database credentials.
+
+```yaml
+---
+- name: Configure Forgejo with SQLite
+  hosts: forgejo
+  gather_facts: true
+  roles:
+    - role: jomrr.forgejo
+      forgejo_database_type: sqlite3
+```
+
 ### PostgreSQL over TCP
 
 Use a prepared database and supply its password from encrypted inventory.
@@ -325,6 +363,37 @@ Use a prepared database and supply its password from encrypted inventory.
   roles:
     - role: jomrr.forgejo
       forgejo_database_host: 127.0.0.1:5432
+      forgejo_database_password: "{{ vault_forgejo_database_password }}"
+```
+
+### MySQL or MariaDB over TCP
+
+Use a prepared database with the mysql backend and its TCP endpoint.
+
+```yaml
+---
+- name: Configure Forgejo with MySQL or MariaDB
+  hosts: forgejo
+  gather_facts: true
+  roles:
+    - role: jomrr.forgejo
+      forgejo_database_type: mysql
+      forgejo_database_host: 127.0.0.1:3306
+      forgejo_database_password: "{{ vault_forgejo_database_password }}"
+```
+
+### PostgreSQL over a Unix socket
+
+Use the socket directory of a local PostgreSQL server.
+
+```yaml
+---
+- name: Configure Forgejo with local PostgreSQL
+  hosts: forgejo
+  gather_facts: true
+  roles:
+    - role: jomrr.forgejo
+      forgejo_database_host: /run/postgresql
       forgejo_database_password: "{{ vault_forgejo_database_password }}"
 ```
 

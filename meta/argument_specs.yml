@@ -11,23 +11,32 @@ argument_specs:
         description: Stable major.minor.patch release or latest, resolved on each run; old
           binaries are retained.
         default: latest
+      forgejo_database_type:
+        type: str
+        description: Database backend; mysql supports both MySQL and MariaDB, sqlite3 uses
+          a local database file.
+        default: postgres
+        choices:
+          - postgres
+          - mysql
+          - sqlite3
       forgejo_database_host:
         type: str
-        description: PostgreSQL host:port for TCP or an absolute Unix socket directory.
+        description: External database host:port, PostgreSQL socket directory or MySQL socket
+          path; unused for SQLite.
         default: 127.0.0.1:5432
       forgejo_database_name:
         type: str
-        description: Name of the externally provisioned PostgreSQL database.
+        description: Name of the externally provisioned database; unused for SQLite.
         default: forgejo
       forgejo_database_user:
         type: str
-        description: Login role for the externally provisioned PostgreSQL database.
+        description: Login user for the externally provisioned database; unused for SQLite.
         default: forgejo
       forgejo_database_password:
         type: str
-        description: PostgreSQL password; an empty string supports externally configured
-          peer authentication.
-        required: true
+        description: Required for external databases; an empty string supports passwordless
+          authentication. Unused for SQLite.
         no_log: true
       forgejo_extra_groups:
         type: list

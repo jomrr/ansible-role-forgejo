@@ -26,12 +26,14 @@ provisioner:
       all:
         ansible_podman_mount_detection: false
       forgejo_servers:
-        forgejo_database_host: "forgejo-${MOLECULE_SCENARIO_NAME}-db:5432"
         forgejo_database_name: "{{ inventory_hostname | replace('-', '_') }}"
-        forgejo_database_password: "molecule-database-password"
     host_vars:
+      almalinux-latest-forgejo:
+        forgejo_database_host: "forgejo-${MOLECULE_SCENARIO_NAME}-db:5432"
+        forgejo_database_password: "molecule-database-password"
       debian-latest-forgejo:
         forgejo_database_host: "/run/postgresql"
+        forgejo_database_password: "molecule-database-password"
         forgejo_config:
           server:
             PROTOCOL: "http+unix"
@@ -39,17 +41,18 @@ provisioner:
           cache:
             ADAPTER: "redis"
             HOST: "network=unix,addr=/run/valkey/valkey.sock,db=2,pool_size=50,idle_timeout=180"
+      fedora-latest-forgejo:
+        forgejo_database_type: "sqlite3"
       opensuse-leap-latest-forgejo:
-        forgejo_database_host: "/run/postgresql"
-        forgejo_config:
-          server:
-            PROTOCOL: "http+unix"
-            HTTP_ADDR: "/run/forgejo/forgejo.sock"
-          cache:
-            ADAPTER: "redis"
-            HOST: "network=unix,addr=/run/valkey/valkey.sock,db=2,pool_size=50,idle_timeout=180"
+        forgejo_database_type: "mysql"
+        forgejo_database_host: "forgejo-${MOLECULE_SCENARIO_NAME}-mysql:3306"
+        forgejo_database_password: "molecule-database-password"
+      opensuse-tumbleweed-latest-forgejo:
+        forgejo_database_type: "mysql"
+        forgejo_database_host: "/run/mysqld/mysqld.sock"
+        forgejo_database_password: "molecule-database-password"
       ubuntu-latest-forgejo:
-        forgejo_database_host: "/run/postgresql"
+        forgejo_database_type: "sqlite3"
         forgejo_config:
           server:
             PROTOCOL: "http+unix"
@@ -59,7 +62,7 @@ provisioner:
             HOST: "network=unix,addr=/run/valkey/valkey.sock,db=2,pool_size=50,idle_timeout=180"
   log: true
   playbooks:
-    prepare: "../resources/playbooks/prepare.yml"
+    prepare: "../resources/playbooks/prepare_dev.yml"
     converge: "../resources/playbooks/converge.yml"
     verify: "../resources/playbooks/verify.yml"
     side_effect: "../resources/playbooks/side_effect.yml"
@@ -96,6 +99,7 @@ platforms:
     volumes:
       - "forgejo-${MOLECULE_SCENARIO_NAME}-postgres:/run/postgresql:rw"
       - "forgejo-${MOLECULE_SCENARIO_NAME}-valkey:/run/valkey:rw"
+      - "forgejo-${MOLECULE_SCENARIO_NAME}-mysql:/run/mysqld:rw"
   - name: "debian-latest-forgejo"
     image: "docker.io/jomrr/molecule-debian:latest"
     pre_build_image: true
@@ -111,6 +115,7 @@ platforms:
     volumes:
       - "forgejo-${MOLECULE_SCENARIO_NAME}-postgres:/run/postgresql:rw"
       - "forgejo-${MOLECULE_SCENARIO_NAME}-valkey:/run/valkey:rw"
+      - "forgejo-${MOLECULE_SCENARIO_NAME}-mysql:/run/mysqld:rw"
   - name: "fedora-latest-forgejo"
     image: "docker.io/jomrr/molecule-fedora:latest"
     pre_build_image: true
@@ -126,6 +131,7 @@ platforms:
     volumes:
       - "forgejo-${MOLECULE_SCENARIO_NAME}-postgres:/run/postgresql:rw"
       - "forgejo-${MOLECULE_SCENARIO_NAME}-valkey:/run/valkey:rw"
+      - "forgejo-${MOLECULE_SCENARIO_NAME}-mysql:/run/mysqld:rw"
   - name: "opensuse-leap-latest-forgejo"
     image: "docker.io/jomrr/molecule-opensuse-leap:latest"
     pre_build_image: true
@@ -141,6 +147,7 @@ platforms:
     volumes:
       - "forgejo-${MOLECULE_SCENARIO_NAME}-postgres:/run/postgresql:rw"
       - "forgejo-${MOLECULE_SCENARIO_NAME}-valkey:/run/valkey:rw"
+      - "forgejo-${MOLECULE_SCENARIO_NAME}-mysql:/run/mysqld:rw"
   - name: "opensuse-tumbleweed-latest-forgejo"
     image: "docker.io/jomrr/molecule-opensuse-tumbleweed:latest"
     pre_build_image: true
@@ -156,6 +163,7 @@ platforms:
     volumes:
       - "forgejo-${MOLECULE_SCENARIO_NAME}-postgres:/run/postgresql:rw"
       - "forgejo-${MOLECULE_SCENARIO_NAME}-valkey:/run/valkey:rw"
+      - "forgejo-${MOLECULE_SCENARIO_NAME}-mysql:/run/mysqld:rw"
   - name: "ubuntu-latest-forgejo"
     image: "docker.io/jomrr/molecule-ubuntu:latest"
     pre_build_image: true
@@ -171,6 +179,7 @@ platforms:
     volumes:
       - "forgejo-${MOLECULE_SCENARIO_NAME}-postgres:/run/postgresql:rw"
       - "forgejo-${MOLECULE_SCENARIO_NAME}-valkey:/run/valkey:rw"
+      - "forgejo-${MOLECULE_SCENARIO_NAME}-mysql:/run/mysqld:rw"
   - name: "forgejo-${MOLECULE_SCENARIO_NAME}-db"
     image: "docker.io/library/postgres:16-alpine"
     pre_build_image: true
@@ -194,3 +203,17 @@ platforms:
     volumes:
       - "forgejo-${MOLECULE_SCENARIO_NAME}-valkey:/run/valkey:rw"
     command: "valkey-server --port 0 --unixsocket /run/valkey/valkey.sock --unixsocketperm 777"
+  - name: "forgejo-${MOLECULE_SCENARIO_NAME}-mysql"
+    image: "docker.io/library/mariadb:11.4"
+    pre_build_image: true
+    override_command: false
+    network: "forgejo-${MOLECULE_SCENARIO_NAME}"
+    groups:
+      - "forgejo_dependencies"
+    volumes:
+      - "forgejo-${MOLECULE_SCENARIO_NAME}-mysql:/run/mysqld:rw"
+    env:
+      MARIADB_ROOT_PASSWORD: "molecule-root-password"
+      MARIADB_USER: "forgejo"
+      MARIADB_PASSWORD: "molecule-database-password"
+      MARIADB_DATABASE: "forgejo"

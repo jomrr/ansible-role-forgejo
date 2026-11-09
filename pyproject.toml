@@ -1,7 +1,7 @@
 [project]
 name = "forgejo"
 version = "0.0.0"
-description = "Install Forgejo Linux amd64 releases and manage PostgreSQL configuration, signing identities and the systemd service."
+description = "Install Forgejo Linux amd64 releases and manage database configuration, signing identities and the systemd service."
 requires-python = ">=3.13"
 authors = [
   { name = "Jonas Mauer" },

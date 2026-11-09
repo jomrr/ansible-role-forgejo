@@ -23,9 +23,7 @@ provisioner:
       all:
         ansible_podman_mount_detection: false
       forgejo_servers:
-        forgejo_database_host: "forgejo-${MOLECULE_SCENARIO_NAME}-db:5432"
-        forgejo_database_name: "{{ inventory_hostname | replace('-', '_') }}"
-        forgejo_database_password: "molecule-database-password"
+        forgejo_database_type: "sqlite3"
   log: true
   playbooks:
     prepare: "../resources/playbooks/prepare.yml"
@@ -55,36 +53,9 @@ platforms:
     pre_build_image: true
     override_command: false
     systemd: "true"
-    network: "forgejo-${MOLECULE_SCENARIO_NAME}"
     groups:
       - "forgejo_servers"
     capabilities:
       - "SYS_ADMIN"
     security_opts:
       - "label=disable"
-    volumes:
-      - "forgejo-${MOLECULE_SCENARIO_NAME}-postgres:/run/postgresql:rw"
-      - "forgejo-${MOLECULE_SCENARIO_NAME}-valkey:/run/valkey:rw"
-  - name: "forgejo-${MOLECULE_SCENARIO_NAME}-db"
-    image: "docker.io/library/postgres:16-alpine"
-    pre_build_image: true
-    override_command: false
-    network: "forgejo-${MOLECULE_SCENARIO_NAME}"
-    groups:
-      - "forgejo_dependencies"
-    volumes:
-      - "forgejo-${MOLECULE_SCENARIO_NAME}-postgres:/var/run/postgresql:rw"
-    env:
-      POSTGRES_USER: "forgejo"
-      POSTGRES_PASSWORD: "molecule-database-password"
-      POSTGRES_DB: "postgres"
-  - name: "forgejo-${MOLECULE_SCENARIO_NAME}-cache"
-    image: "docker.io/valkey/valkey:8-alpine"
-    pre_build_image: true
-    override_command: true
-    network: "forgejo-${MOLECULE_SCENARIO_NAME}"
-    groups:
-      - "forgejo_dependencies"
-    volumes:
-      - "forgejo-${MOLECULE_SCENARIO_NAME}-valkey:/run/valkey:rw"
-    command: "valkey-server --port 0 --unixsocket /run/valkey/valkey.sock --unixsocketperm 777"

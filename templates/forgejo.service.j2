@@ -5,8 +5,10 @@
 Description=Forgejo Git Server
 After=network-online.target
 Wants=network-online.target
+{% if forgejo_database_type == 'postgres' %}
 Wants=postgresql.service
 After=postgresql.service
+{% endif %}
 
 [Service]
 Type=simple

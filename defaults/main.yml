@@ -6,17 +6,23 @@
 forgejo_version: latest
 # forgejo_version: '17.0.1'
 
-# PostgreSQL host and port, or absolute Unix socket directory.
+# Database backend; MySQL also covers MariaDB.
+# Choices: postgres, mysql, sqlite3.
+forgejo_database_type: postgres
+
+# External database host:port, PostgreSQL socket directory or MySQL socket path.
 forgejo_database_host: 127.0.0.1:5432
 # forgejo_database_host: /run/postgresql
+# forgejo_database_host: 127.0.0.1:3306
+# forgejo_database_host: /run/mysqld/mysqld.sock
 
-# Name of the externally provisioned PostgreSQL database.
+# Name of the externally provisioned database; unused for SQLite.
 forgejo_database_name: forgejo
 
-# Login role for the externally provisioned PostgreSQL database.
+# Login user for the externally provisioned database; unused for SQLite.
 forgejo_database_user: forgejo
 
-# Password for PostgreSQL; an empty string supports externally configured peer authentication.
+# Required for external databases; an empty string supports passwordless authentication.
 # forgejo_database_password: '{{ vault_forgejo_database_password }}'
 
 # Additional existing groups granting access to services such as a Valkey socket.

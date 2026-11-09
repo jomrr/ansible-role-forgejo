@@ -60,6 +60,23 @@
           - ansible_facts.services['forgejo.service'].status == 'enabled'
         quiet: true
 
+    - name: FORGEJO | Inspect the SQLite database
+      become: true
+      become_user: root
+      ansible.builtin.stat:
+        path: /var/lib/forgejo/data/forgejo.db
+      register: __forgejo_sqlite_database
+      when: forgejo_database_type is defined and forgejo_database_type == 'sqlite3'
+
+    - name: FORGEJO | Verify persistent SQLite storage
+      ansible.builtin.assert:
+        that:
+          - __forgejo_sqlite_database.stat.isreg
+          - __forgejo_sqlite_database.stat.size > 0
+          - __forgejo_sqlite_database.stat.pw_name == 'git'
+        quiet: true
+      when: forgejo_database_type is defined and forgejo_database_type == 'sqlite3'
+
     - name: FORGEJO | Read adopted secrets
       become: true
       become_user: root

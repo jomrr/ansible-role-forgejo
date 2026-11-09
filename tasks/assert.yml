@@ -51,15 +51,30 @@
     label: '{{ __forgejo_setting.key }}'
   no_log: true
 
-- name: FORGEJO | Validate listener and database endpoints
+- name: FORGEJO | Validate listener endpoints
   ansible.builtin.assert:
     that:
       - __forgejo_config.server.PROTOCOL in ['http', 'http+unix']
       - __forgejo_config.server.PROTOCOL != 'http+unix' or __forgejo_config.server.HTTP_ADDR == '/run/forgejo/forgejo.sock'
       - __forgejo_config.server.ROOT_URL is match('^https?://')
+    quiet: true
+  no_log: true
+
+- name: FORGEJO | Require credentials for external databases
+  ansible.builtin.assert:
+    that:
+      - forgejo_database_password is defined
+    fail_msg: Set forgejo_database_password for PostgreSQL or MySQL/MariaDB; SQLite needs no credential.
+    quiet: true
+  when: forgejo_database_type != 'sqlite3'
+
+- name: FORGEJO | Validate external database settings
+  ansible.builtin.assert:
+    that:
       - forgejo_database_host is match('^(/[^\s:]+|[^\s/:]+:[0-9]+)\Z')
       - forgejo_database_password == forgejo_database_password | trim
       - forgejo_database_name | length > 0
       - forgejo_database_user | length > 0
     quiet: true
   no_log: true
+  when: forgejo_database_type != 'sqlite3'

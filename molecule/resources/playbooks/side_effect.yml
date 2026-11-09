@@ -32,11 +32,10 @@
         state: stopped
         enabled: false
 
-    - name: FORGEJO | Apply a changed configuration with Unix socket dependencies
+    - name: FORGEJO | Apply a changed configuration with an HTTP Unix socket
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
       vars:
-        forgejo_database_host: /run/postgresql
         forgejo_config:
           DEFAULT:
             APP_NAME: Updated Forgejo
@@ -45,9 +44,6 @@
             HTTP_ADDR: /run/forgejo/forgejo.sock
           log:
             MODE: console,file
-          cache:
-            ADAPTER: redis
-            HOST: network=unix,addr=/run/valkey/valkey.sock,db=2,pool_size=50,idle_timeout=180
 
     - name: FORGEJO | Inspect identities after reconfiguration
       become: true
