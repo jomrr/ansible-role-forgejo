@@ -6,6 +6,20 @@ __forgejo_version: "{{ __forgejo_release.json.tag_name | regex_replace('^v', '')
 __forgejo_download_url: >-
   https://code.forgejo.org/forgejo/forgejo/releases/download/v{{ __forgejo_version }}/forgejo-{{ __forgejo_version }}-linux-amd64
 
+__forgejo_restorecon_command: "{{ ['restorecon', '-i', '-v'] + (['-n'] if ansible_check_mode else []) }}"
+__forgejo_relabel_paths:
+  - - /usr/local/bin
+    - /usr/local/libexec
+  - - -R
+    - /usr/local/libexec/forgejo
+    - /usr/local/bin/forgejo
+    - /etc/forgejo
+    - /home/git
+    - /var/lib/forgejo
+    - /var/log/forgejo
+    - /etc/systemd/system/forgejo.service
+    - /run/forgejo
+
 __forgejo_managed_config:
   DEFAULT:
     RUN_USER: git

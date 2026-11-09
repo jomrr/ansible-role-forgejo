@@ -26,6 +26,8 @@ and start forgejo.service. Unchanged releases and settings are idempotent.
   persistent instance secrets.
 - A hardened systemd service with a runtime directory for the optional HTTP Unix
   socket.
+- SELinux file contexts restored from the installed policy when SELinux is
+  enabled, including permissive mode.
 
 ### Not Managed
 
@@ -305,6 +307,11 @@ systemd first. Every run restores a stopped or disabled service.
 
 ## Operational Notes
 
+- With SELinux enabled, the role installs policycoreutils and restores contexts
+  on managed trees before restarting Forgejo and on its runtime directory after
+  startup. Shared executable directories are relabeled without recursion.
+- SELinux policy and file-context mappings remain externally managed. Check mode
+  reports pending context repairs without applying them.
 - forgejo_config recursively overrides forgejo_config_defaults. Keys controlling
   managed paths, the database connection and signing identities are reserved.
 - PostgreSQL over TCP remains the default. Select mysql for MySQL/MariaDB or

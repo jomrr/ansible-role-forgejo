@@ -21,6 +21,14 @@
     name: '{{ __forgejo_packages }}'
     state: present
 
+- name: FORGEJO | Install SELinux context restoration tools
+  become: true
+  become_user: root
+  ansible.builtin.package:
+    name: policycoreutils
+    state: present
+  when: ansible_facts.selinux.status == 'enabled'
+
 - name: FORGEJO | Install the selected release
   ansible.builtin.import_tasks: install.yml
 
@@ -158,6 +166,23 @@
     - reload systemd
     - restart forgejo
 
+- name: FORGEJO | Restore SELinux contexts on managed paths
+  become: true
+  become_user: root
+  ansible.builtin.command:
+    argv: '{{ __forgejo_restorecon_command + __forgejo_relabel_arguments }}'
+  environment:
+    LC_ALL: C
+  loop: '{{ __forgejo_relabel_paths }}'
+  loop_control:
+    loop_var: __forgejo_relabel_arguments
+    label: '{{ __forgejo_relabel_arguments | join(" ") }}'
+  register: __forgejo_restorecon
+  changed_when: __forgejo_restorecon.stdout | length > 0
+  check_mode: false
+  when: ansible_facts.selinux.status == 'enabled'
+  notify: restart forgejo
+
 - name: FORGEJO | Apply configuration and service unit changes
   ansible.builtin.meta: flush_handlers
 
@@ -168,3 +193,15 @@
     name: forgejo.service
     enabled: true
     state: started
+
+- name: FORGEJO | Restore SELinux contexts in the active runtime directory
+  become: true
+  become_user: root
+  ansible.builtin.command:
+    argv: "{{ __forgejo_restorecon_command + ['-R', '/run/forgejo'] }}"
+  environment:
+    LC_ALL: C
+  register: __forgejo_restorecon_runtime
+  changed_when: __forgejo_restorecon_runtime.stdout | length > 0
+  check_mode: false
+  when: ansible_facts.selinux.status == 'enabled'
