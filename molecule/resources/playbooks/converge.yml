@@ -1,0 +1,10 @@
+---
+# role: forgejo
+# file: molecule/resources/playbooks/converge.yml
+
+
+- name: FORGEJO | Converge
+  hosts: forgejo_servers
+  gather_facts: true
+  roles:
+    - role: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"

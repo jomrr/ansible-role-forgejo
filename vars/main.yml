@@ -1,0 +1,46 @@
+---
+# role: forgejo
+# file: vars/main.yml
+
+__forgejo_version: "{{ __forgejo_release.json.tag_name | regex_replace('^v', '') if forgejo_version == 'latest' else forgejo_version }}"
+__forgejo_download_url: >-
+  https://code.forgejo.org/forgejo/forgejo/releases/download/v{{ __forgejo_version }}/forgejo-{{ __forgejo_version }}-linux-amd64
+
+__forgejo_managed_config:
+  DEFAULT:
+    RUN_USER: git
+    WORK_PATH: /var/lib/forgejo
+  database:
+    DB_TYPE: postgres
+    HOST: '{{ forgejo_database_host }}'
+    NAME: '{{ forgejo_database_name }}'
+    USER: '{{ forgejo_database_user }}'
+    PASSWD_URI: file:/etc/forgejo/secrets/database_password
+  repository:
+    ROOT: /var/lib/forgejo/data/repositories
+  repository.signing:
+    FORMAT: ssh
+    SIGNING_KEY: /home/git/.ssh/id_ed25519.pub
+  server:
+    APP_DATA_PATH: /var/lib/forgejo/data
+    SSH_USER: git
+    SSH_ROOT_PATH: /home/git/.ssh
+  lfs:
+    PATH: /var/lib/forgejo/data/lfs
+  log:
+    ROOT_PATH: /var/log/forgejo
+  security:
+    INSTALL_LOCK: true
+
+__forgejo_config: '{{ forgejo_config_defaults | combine(forgejo_config, recursive=true) }}'
+
+__forgejo_reserved_config:
+  DEFAULT: [RUN_USER, WORK_PATH]
+  database: [DB_TYPE, HOST, PORT, NAME, USER, PASSWD, PASSWD_URI, PATH]
+  repository: [ROOT]
+  repository.signing: [FORMAT, SIGNING_KEY]
+  server: [APP_DATA_PATH, SSH_USER, SSH_ROOT_PATH, LFS_JWT_SECRET, LFS_JWT_SECRET_URI, LFS_JWT_SIGNING_ALGORITHM, LFS_JWT_SIGNING_PRIVATE_KEY_FILE]
+  lfs: [PATH]
+  log: [ROOT_PATH]
+  security: [INSTALL_LOCK, SECRET_KEY, SECRET_KEY_URI, INTERNAL_TOKEN, INTERNAL_TOKEN_URI]
+  oauth2: [JWT_SECRET, JWT_SECRET_URI, JWT_SIGNING_ALGORITHM, JWT_SIGNING_PRIVATE_KEY_FILE]

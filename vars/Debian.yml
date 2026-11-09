@@ -1,0 +1,9 @@
+---
+# role: forgejo
+# file: vars/Debian.yml
+
+__forgejo_packages:
+  - ca-certificates
+  - git
+  - openssh-client
+  - openssh-server

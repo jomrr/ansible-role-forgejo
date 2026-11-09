@@ -1,0 +1,13 @@
+; Managed by ansible.
+; file: {{ template_destpath }}
+{% set config = __forgejo_config | combine(__forgejo_managed_config, recursive=true) | combine(__forgejo_secrets.config, recursive=true) %}
+{% for section, settings in ({'DEFAULT': config.DEFAULT} | combine(config)).items() %}
+{% if section != 'DEFAULT' %}
+
+[{{ section }}]
+{% endif %}
+{% for key, value in settings.items() %}
+{{ key }} = {% if value is boolean %}{{ value | lower }}{% elif value is string %}"""{{ value }}"""{% else %}{{ value }}{% endif %}
+
+{% endfor %}
+{% endfor %}

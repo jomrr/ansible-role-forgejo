@@ -1,0 +1,145 @@
+---
+# role: forgejo
+# file: molecule/resources/playbooks/side_effect.yml
+
+
+- name: FORGEJO | Exercise reconfiguration without rotating identities
+  hosts: forgejo_servers
+  gather_facts: true
+  tasks:
+    - name: FORGEJO | Snapshot persistent identities
+      become: true
+      become_user: root
+      ansible.builtin.stat:
+        path: '{{ __forgejo_path }}'
+        checksum_algorithm: sha256
+      loop: &identity_paths
+        - /home/git/.ssh/id_ed25519
+        - /etc/forgejo/secrets/secret_key
+        - /etc/forgejo/secrets/internal_token
+        - /etc/forgejo/secrets/lfs_jwt_secret
+        - /etc/forgejo/secrets/oauth2_jwt_secret
+      loop_control:
+        loop_var: __forgejo_path
+      register: __forgejo_before
+      no_log: true
+
+    - name: FORGEJO | Stop and disable the service
+      become: true
+      become_user: root
+      ansible.builtin.systemd_service:
+        name: forgejo
+        state: stopped
+        enabled: false
+
+    - name: FORGEJO | Apply a changed configuration with Unix socket dependencies
+      ansible.builtin.include_role:
+        name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+      vars:
+        forgejo_database_host: /run/postgresql
+        forgejo_config:
+          DEFAULT:
+            APP_NAME: Updated Forgejo
+          server:
+            PROTOCOL: http+unix
+            HTTP_ADDR: /run/forgejo/forgejo.sock
+          log:
+            MODE: console,file
+          cache:
+            ADAPTER: redis
+            HOST: network=unix,addr=/run/valkey/valkey.sock,db=2,pool_size=50,idle_timeout=180
+
+    - name: FORGEJO | Inspect identities after reconfiguration
+      become: true
+      become_user: root
+      ansible.builtin.stat:
+        path: '{{ __forgejo_path }}'
+        checksum_algorithm: sha256
+      loop: *identity_paths
+      loop_control:
+        loop_var: __forgejo_path
+      register: __forgejo_after
+      no_log: true
+
+    - name: FORGEJO | Verify stable secrets and signing key
+      ansible.builtin.assert:
+        that:
+          - >-
+            __forgejo_before.results | map(attribute='stat.checksum') | list
+            == __forgejo_after.results | map(attribute='stat.checksum') | list
+        quiet: true
+      no_log: true
+
+    - name: FORGEJO | Wait for the reconfigured application
+      become: true
+      become_user: root
+      ansible.builtin.uri:
+        url: http://localhost:3000/api/v1/version
+        unix_socket: /run/forgejo/forgejo.sock
+        timeout: 5
+      register: __forgejo_updated
+      until: __forgejo_updated.status == 200
+      retries: 60
+      delay: 3
+
+    - name: FORGEJO | Create an administrator for the signing test
+      become: true
+      become_user: root
+      ansible.builtin.command:
+        argv:
+          - runuser
+          - -u
+          - git
+          - --
+          - /usr/local/bin/forgejo
+          - --config
+          - /etc/forgejo/app.ini
+          - --work-path
+          - /var/lib/forgejo
+          - admin
+          - user
+          - create
+          - --username
+          - molecule
+          - --password
+          - molecule-admin-fixture-password
+          - --email
+          - molecule@example.test
+          - --admin
+          - --must-change-password=false
+        chdir: /var/lib/forgejo
+      changed_when: true
+      no_log: true
+
+    - name: FORGEJO | Create a repository with an instance-signed initial commit
+      become: true
+      become_user: root
+      ansible.builtin.uri:
+        url: http://localhost:3000/api/v1/user/repos
+        unix_socket: /run/forgejo/forgejo.sock
+        user: molecule
+        password: molecule-admin-fixture-password
+        force_basic_auth: true
+        method: POST
+        body_format: json
+        body:
+          name: signed
+          auto_init: true
+          readme: Default
+        status_code: 201
+      no_log: true
+
+    - name: FORGEJO | Inspect the signed commit
+      become: true
+      become_user: root
+      ansible.builtin.uri:
+        url: http://localhost:3000/api/v1/repos/molecule/signed/commits?limit=1
+        unix_socket: /run/forgejo/forgejo.sock
+      register: __forgejo_commits
+
+    - name: FORGEJO | Verify the instance commit signature
+      ansible.builtin.assert:
+        that:
+          - __forgejo_commits.json[0].commit.verification.verified
+          - "'SSH SIGNATURE' in __forgejo_commits.json[0].commit.verification.signature"
+        quiet: true

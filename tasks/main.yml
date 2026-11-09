@@ -1,0 +1,169 @@
+---
+# role: forgejo
+# file: tasks/main.yml
+
+- name: FORGEJO | Validate deployment inputs
+  ansible.builtin.import_tasks: assert.yml
+
+- name: FORGEJO | Load platform settings
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __forgejo_platform_files) }}"
+  vars:
+    __forgejo_platform_files:
+      files:
+        - '{{ ansible_facts.os_family }}.yml'
+      paths:
+        - '{{ role_path }}/vars'
+
+- name: FORGEJO | Install Git and SSH dependencies
+  become: true
+  become_user: root
+  ansible.builtin.package:
+    name: '{{ __forgejo_packages }}'
+    state: present
+
+- name: FORGEJO | Install the selected release
+  ansible.builtin.import_tasks: install.yml
+
+- name: FORGEJO | Create the system group
+  become: true
+  become_user: root
+  ansible.builtin.group:
+    name: git
+    system: true
+
+- name: FORGEJO | Create the system user with password authentication disabled
+  become: true
+  become_user: root
+  ansible.builtin.user:
+    name: git
+    group: git
+    groups: '{{ forgejo_extra_groups }}'
+    append: true
+    system: true
+    home: /home/git
+    create_home: true
+    shell: /bin/bash
+    password: '*'
+  notify: restart forgejo
+
+- name: FORGEJO | Create protected configuration directories
+  become: true
+  become_user: root
+  ansible.builtin.file:
+    path: '{{ __forgejo_directory }}'
+    state: directory
+    owner: root
+    group: git
+    mode: '0750'
+  loop:
+    - /etc/forgejo
+    - /etc/forgejo/secrets
+  loop_control:
+    loop_var: __forgejo_directory
+    label: '{{ __forgejo_directory }}'
+
+- name: FORGEJO | Create application and log directories
+  become: true
+  become_user: root
+  ansible.builtin.file:
+    path: '{{ __forgejo_directory }}'
+    state: directory
+    owner: git
+    group: git
+    mode: '0750'
+  loop:
+    - /var/lib/forgejo
+    - /var/lib/forgejo/data
+    - /var/lib/forgejo/data/repositories
+    - /var/lib/forgejo/data/lfs
+    - /var/log/forgejo
+  loop_control:
+    loop_var: __forgejo_directory
+    label: '{{ __forgejo_directory }}'
+
+- name: FORGEJO | Create the SSH directory
+  become: true
+  become_user: root
+  ansible.builtin.file:
+    path: /home/git/.ssh
+    state: directory
+    owner: git
+    group: git
+    mode: '0700'
+
+- name: FORGEJO | Create the instance signing key when absent
+  become: true
+  become_user: root
+  community.crypto.openssh_keypair:
+    path: /home/git/.ssh/id_ed25519
+    type: ed25519
+    backend: opensshbin
+    regenerate: never
+    owner: git
+    group: git
+    mode: '0600'
+  no_log: true
+  notify: restart forgejo
+
+- name: FORGEJO | Preserve or initialize instance secrets
+  become: true
+  become_user: root
+  forgejo_secrets:
+    config_path: /etc/forgejo/app.ini
+    directory: /etc/forgejo/secrets
+    binary: /usr/local/bin/forgejo
+    owner: root
+    group: git
+    mode: '0640'
+  register: __forgejo_secrets
+  no_log: true
+  notify: restart forgejo
+
+- name: FORGEJO | Store the database credential
+  become: true
+  become_user: root
+  ansible.builtin.copy:
+    content: '{{ forgejo_database_password }}'
+    dest: /etc/forgejo/secrets/database_password
+    owner: root
+    group: git
+    mode: '0640'
+  no_log: true
+  notify: restart forgejo
+
+- name: FORGEJO | Configure the application
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: app.ini.j2
+    dest: /etc/forgejo/app.ini
+    owner: root
+    group: git
+    mode: '0640'
+    backup: true
+  no_log: true
+  notify: restart forgejo
+
+- name: FORGEJO | Install the service unit
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: forgejo.service.j2
+    dest: /etc/systemd/system/forgejo.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart forgejo
+
+- name: FORGEJO | Apply configuration and service unit changes
+  ansible.builtin.meta: flush_handlers
+
+- name: FORGEJO | Enable and start the service
+  become: true
+  become_user: root
+  ansible.builtin.systemd_service:
+    name: forgejo.service
+    enabled: true
+    state: started

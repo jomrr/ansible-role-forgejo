@@ -1,0 +1,43 @@
+# Managed by ansible.
+# file: {{ template_destpath }}
+
+[Unit]
+Description=Forgejo Git Server
+After=network-online.target
+Wants=network-online.target
+Wants=postgresql.service
+After=postgresql.service
+
+[Service]
+Type=simple
+User=git
+Group=git
+WorkingDirectory=/var/lib/forgejo
+Environment=USER=git
+Environment=HOME=/home/git
+Environment=FORGEJO_WORK_DIR=/var/lib/forgejo
+ExecStart=/usr/local/bin/forgejo web --config /etc/forgejo/app.ini
+Restart=on-failure
+RestartSec=2s
+TimeoutStartSec=90
+TimeoutStopSec=30
+RuntimeDirectory=forgejo
+RuntimeDirectoryMode=0750
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=false
+ReadWritePaths=/home/git/.ssh /var/lib/forgejo /var/log/forgejo /run/forgejo /tmp
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+UMask=0077
+RestrictAddressFamilies=AF_UNIX AF_INET AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target

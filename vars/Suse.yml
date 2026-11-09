@@ -1,0 +1,8 @@
+---
+# role: forgejo
+# file: vars/Suse.yml
+
+__forgejo_packages:
+  - ca-certificates
+  - git
+  - openssh

@@ -1,0 +1,9 @@
+---
+# role: forgejo
+# file: vars/RedHat.yml
+
+__forgejo_packages:
+  - ca-certificates
+  - git
+  - openssh-clients
+  - openssh-server

@@ -1,0 +1,17 @@
+---
+# role: forgejo
+# file: meta/main.yml
+
+galaxy_info:
+  author: Jonas Mauer
+  description: Install Forgejo Linux amd64 releases and manage PostgreSQL configuration, signing identities and the systemd service.
+  galaxy_tags:
+    - forgejo
+    - git
+    - development
+    - system
+  issue_tracker_url: https://github.com/jomrr/ansible-role-forgejo/issues
+  license: MIT
+  min_ansible_version: "2.22"
+  namespace: jomrr
+  role_name: forgejo

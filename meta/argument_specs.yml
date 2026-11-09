@@ -1,0 +1,143 @@
+---
+# role: forgejo
+# file: meta/argument_specs.yml
+
+argument_specs:
+  main:
+    short_description: Install and configure a Forgejo Git server.
+    options:
+      forgejo_version:
+        type: str
+        description: Stable major.minor.patch release or latest, resolved on each run; old
+          binaries are retained.
+        default: latest
+      forgejo_database_host:
+        type: str
+        description: PostgreSQL host:port for TCP or an absolute Unix socket directory.
+        default: 127.0.0.1:5432
+      forgejo_database_name:
+        type: str
+        description: Name of the externally provisioned PostgreSQL database.
+        default: forgejo
+      forgejo_database_user:
+        type: str
+        description: Login role for the externally provisioned PostgreSQL database.
+        default: forgejo
+      forgejo_database_password:
+        type: str
+        description: PostgreSQL password; an empty string supports externally configured
+          peer authentication.
+        required: true
+        no_log: true
+      forgejo_extra_groups:
+        type: list
+        description: Additional existing groups for the git account, for example access
+          to a Valkey socket.
+        default: []
+        elements: str
+      forgejo_config_defaults:
+        type: dict
+        description: Baseline INI sections recursively merged with forgejo_config; managed
+          paths and credentials are reserved.
+        default:
+          DEFAULT:
+            APP_NAME: Forgejo
+            APP_SLOGAN: Beyond coding. We Forge.
+            APP_DISPLAY_NAME_FORMAT: '{APP_NAME}'
+            RUN_MODE: prod
+          database:
+            SCHEMA: ''
+            SSL_MODE: disable
+            LOG_SQL: false
+          repository:
+            DEFAULT_PRIVATE: public
+            DISABLE_STARS: true
+          repository.signing:
+            SIGNING_NAME: Forgejo instance
+            SIGNING_EMAIL: git@localhost
+            INITIAL_COMMIT: always
+            DEFAULT_TRUST_MODEL: committer
+            WIKI: always
+            CRUD_ACTIONS: pubkey, twofa, parentsigned
+            MERGES: pubkey, twofa, basesigned, commitssigned
+          badges:
+            ENABLED: true
+          server:
+            DISABLE_SSH: false
+            DOMAIN: localhost
+            HTTP_ADDR: 127.0.0.1
+            HTTP_PORT: 3000
+            LANDING_PAGE: login
+            LFS_START_SERVER: true
+            OFFLINE_MODE: true
+            PROTOCOL: http
+            ROOT_URL: http://localhost:3000/
+            SSH_DOMAIN: localhost
+            SSH_EXPOSE_ANONYMOUS: false
+            SSH_PORT: 22
+            START_SSH_SERVER: false
+            UNIX_SOCKET_PERMISSION: '660'
+          mailer:
+            ENABLED: false
+          service:
+            REGISTER_EMAIL_CONFIRM: false
+            ENABLE_NOTIFY_MAIL: false
+            DISABLE_REGISTRATION: true
+            ALLOW_ONLY_EXTERNAL_REGISTRATION: false
+            ENABLE_CAPTCHA: false
+            REQUIRE_SIGNIN_VIEW: false
+            DEFAULT_KEEP_EMAIL_PRIVATE: true
+            DEFAULT_ALLOW_CREATE_ORGANIZATION: true
+            DEFAULT_ENABLE_TIMETRACKING: true
+            NO_REPLY_ADDRESS: noreply.localhost
+          picture:
+            DISABLE_GRAVATAR: true
+            ENABLE_FEDERATED_AVATAR: false
+          openid:
+            ENABLE_OPENID_SIGNIN: false
+            ENABLE_OPENID_SIGNUP: false
+          session:
+            PROVIDER: file
+          log:
+            MODE: console
+            LEVEL: info
+          security:
+            PASSWORD_HASH_ALGO: argon2
+            REVERSE_PROXY_LIMIT: 1
+            REVERSE_PROXY_TRUSTED_PROXIES: 127.0.0.0/8
+          ui:
+            DEFAULT_THEME: forgejo-auto
+            THEMES: forgejo-auto,forgejo-light,forgejo-dark,gitea-auto,gitea-dark,gitea-light
+            MEMBERS_PAGING_NUM: 100
+            FEED_MAX_COMMIT_NUM: 5
+            FEED_PAGING_NUM: 100
+            SITEMAP_PAGING_NUM: 100
+          webhook:
+            ALLOWED_HOST_LIST: external
+          actions:
+            ENABLED: true
+            DEFAULT_ACTIONS_URL: https://code.forgejo.org
+          oauth2:
+            ENABLED: false
+          cron.update_checker:
+            ENABLED: false
+          repository.pull-request:
+            DEFAULT_MERGE_STYLE: merge
+          cache:
+            ADAPTER: memory
+          queue:
+            TYPE: level
+            MAX_WORKERS: 4
+          other:
+            SHOW_FOOTER_VERSION: true
+            SHOW_FOOTER_TEMPLATE_LOAD_TIME: false
+            SHOW_FOOTER_POWERED_BY: false
+            ENABLE_SITEMAP: true
+            ENABLE_FEED: false
+        no_log: true
+      forgejo_config:
+        type: dict
+        description: INI section and key overrides; scalar values only. Managed paths, credentials
+          and signing identities are reserved.
+        default: {}
+        no_log: true

@@ -1,0 +1,83 @@
+---
+# role: forgejo
+# file: molecule/resources/playbooks/verify.yml
+
+
+- name: FORGEJO | Verify service and installed state
+  hosts: forgejo_servers
+  gather_facts: true
+  tasks:
+    - name: FORGEJO | Inspect the HTTP socket
+      become: true
+      become_user: root
+      ansible.builtin.stat:
+        path: /run/forgejo/forgejo.sock
+      register: __forgejo_socket
+
+    - name: FORGEJO | Wait for a healthy application
+      become: true
+      become_user: root
+      ansible.builtin.uri:
+        url: "{{ 'http://localhost' if __forgejo_socket.stat.exists else 'http://127.0.0.1:3000' }}/api/v1/version"
+        unix_socket: "{{ '/run/forgejo/forgejo.sock' if __forgejo_socket.stat.exists else omit }}"
+        timeout: 5
+      register: __forgejo_health
+      until: __forgejo_health.status == 200
+      retries: 60
+      delay: 3
+
+    - name: FORGEJO | Inspect managed paths
+      become: true
+      become_user: root
+      ansible.builtin.stat:
+        path: '{{ __forgejo_path }}'
+      loop:
+        - /usr/local/bin/forgejo
+        - /usr/local/libexec/forgejo/forgejo-v0.0.0
+        - /etc/forgejo/app.ini
+        - /var/log/forgejo
+        - /home/git/.ssh/id_ed25519
+      loop_control:
+        loop_var: __forgejo_path
+      register: __forgejo_paths
+
+    - name: FORGEJO | Read service state
+      ansible.builtin.service_facts:
+
+    - name: FORGEJO | Check the selected release and permissions
+      ansible.builtin.assert:
+        that:
+          - __forgejo_paths.results[0].stat.lnk_source == '/usr/local/libexec/forgejo/forgejo-v' + __forgejo_health.json.version.split('+')[0]
+          - __forgejo_paths.results[1].stat.exists
+          - __forgejo_paths.results[2].stat.pw_name == 'root'
+          - __forgejo_paths.results[2].stat.gr_name == 'git'
+          - __forgejo_paths.results[2].stat.mode == '0640'
+          - __forgejo_paths.results[3].stat.isdir
+          - __forgejo_paths.results[3].stat.pw_name == 'git'
+          - __forgejo_paths.results[4].stat.pw_name == 'git'
+          - __forgejo_paths.results[4].stat.mode == '0600'
+          - ansible_facts.services['forgejo.service'].state == 'running'
+          - ansible_facts.services['forgejo.service'].status == 'enabled'
+        quiet: true
+
+    - name: FORGEJO | Read adopted secrets
+      become: true
+      become_user: root
+      ansible.builtin.slurp:
+        src: '/etc/forgejo/secrets/{{ __forgejo_secret }}'
+      loop: [secret_key, lfs_jwt_secret, oauth2_jwt_secret]
+      loop_control:
+        loop_var: __forgejo_secret
+      register: __forgejo_adopted
+      no_log: true
+      when: ansible_facts.os_family == 'RedHat'
+
+    - name: FORGEJO | Check that adoption preserved credentials
+      ansible.builtin.assert:
+        that:
+          - __forgejo_adopted.results[0].content | b64decode == 'molecule-existing-installation-secret'
+          - __forgejo_adopted.results[1].content | b64decode == 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+          - __forgejo_adopted.results[2].content | b64decode == 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+        quiet: true
+      no_log: true
+      when: ansible_facts.os_family == 'RedHat'
