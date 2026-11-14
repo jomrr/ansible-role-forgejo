@@ -143,10 +143,8 @@ argument_specs:
             SHOW_FOOTER_POWERED_BY: false
             ENABLE_SITEMAP: true
             ENABLE_FEED: false
-        no_log: true
       forgejo_config:
         type: dict
         description: INI section and key overrides; scalar values only. Managed paths, credentials
           and signing identities are reserved.
         default: {}
-        no_log: true
